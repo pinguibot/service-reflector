@@ -265,10 +265,7 @@ func (w *Watcher) onEndpointSliceAdd(ctx context.Context, obj interface{}) {
 	log := w.log.WithValues("endpointslice", types.NamespacedName{Namespace: remoteES.Namespace, Name: remoteES.Name})
 
 	// Local EndpointSlice name: use a stable name derived from remote cluster+name.
-	localName := fmt.Sprintf("%s-%s", w.remoteID, remoteES.Name)
-	if len(localName) > 63 {
-		localName = localName[:63]
-	}
+	localName := localEndpointSliceName(w.remoteID, remoteES.Name)
 
 	localES := &discoveryv1.EndpointSlice{}
 	localNN := types.NamespacedName{Namespace: remoteES.Namespace, Name: localName}
@@ -325,10 +322,7 @@ func (w *Watcher) onEndpointSliceDelete(ctx context.Context, obj interface{}) {
 			return
 		}
 	}
-	localName := fmt.Sprintf("%s-%s", w.remoteID, remoteES.Name)
-	if len(localName) > 63 {
-		localName = localName[:63]
-	}
+	localName := localEndpointSliceName(w.remoteID, remoteES.Name)
 	localNN := types.NamespacedName{Namespace: remoteES.Namespace, Name: localName}
 	log := w.log.WithValues("endpointslice", localNN)
 
@@ -345,6 +339,17 @@ func (w *Watcher) onEndpointSliceDelete(ctx context.Context, obj interface{}) {
 	} else {
 		log.Info("deleted local EndpointSlice")
 	}
+}
+
+// localEndpointSliceName returns a stable, DNS-label-safe name for the local
+// mirror of a remote EndpointSlice. It is derived from the remote cluster ID
+// and the remote slice name, truncated to the 63-character Kubernetes limit.
+func localEndpointSliceName(remoteID, remoteName string) string {
+	name := fmt.Sprintf("%s-%s", remoteID, remoteName)
+	if len(name) > 63 {
+		name = name[:63]
+	}
+	return name
 }
 
 // toServiceExport converts an unstructured object from the dynamic informer
